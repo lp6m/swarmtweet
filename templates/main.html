@@ -1,0 +1,121 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>API Call Sample</title>
+    <!-- Bootstrap CSS -->
+    <link href="https://maxcdn.bootstrapcdn.com/bootstrap/4.5.2/css/bootstrap.min.css" rel="stylesheet">
+    <style>
+        #errorDiv {
+            color: red;
+            display: none;  /* 初期状態では非表示にします */
+            margin: 10px 0;
+        }
+        .no-wrap {
+            white-space: nowrap;
+        }
+    </style>
+</head>
+<body>
+
+<div class="container mt-4">
+    <div id="errorDiv" class="alert alert-danger">取得に失敗しました</div>
+
+    <!-- Bootstrapボタンスタイル適用 -->
+    <button id="fetchData" class="btn btn-primary mb-3">取得</button>
+
+    <!-- Bootstrapテーブルスタイル適用 -->
+    <table class="table table-bordered" id="resultsTable">
+        <thead class="thead-light">
+            <tr>
+                <th>CreatedAt</th>
+                <th>Name</th>
+                <th>shout</th>
+                <th></th>
+            </tr>
+        </thead>
+        <tbody>
+            <!-- APIからのデータがここに挿入されます -->
+        </tbody>
+    </table>
+</div>
+
+
+<script>
+    function convertUnixTimestampToDate(timestamp) {
+        // JavaScriptのDateはミリ秒単位なので、秒単位のtimestampを1000倍しています
+        let date = new Date(timestamp * 1000);
+        
+        // YYYY-MM-DD HH:MM:SSのフォーマットに変換
+        let year = date.getFullYear();
+        let month = ("0" + (date.getMonth() + 1)).slice(-2); // 月は0から開始するため+1しています
+        let day = ("0" + date.getDate()).slice(-2);
+        let hours = ("0" + date.getHours()).slice(-2);
+        let minutes = ("0" + date.getMinutes()).slice(-2);
+        let seconds = ("0" + date.getSeconds()).slice(-2);
+
+        return `${year}-${month}-${day} ${hours}:${minutes}:${seconds}`;
+    }
+    document.getElementById('fetchData').addEventListener('click', function() {
+        fetch('{{ setting.url_prefix }}/get_checkins')  // APIのエンドポイントを指定
+        .then(response => response.json())
+        .then(data => {
+            const tableBody = document.getElementById('resultsTable').getElementsByTagName('tbody')[0];
+
+            // 既存の行をクリア
+            tableBody.innerHTML = "";
+
+            // APIから取得したデータをループしてテーブルに追加
+            data.response.checkins.items.forEach(item => {
+                const row = tableBody.insertRow();
+                const cell1 = row.insertCell(0);
+                cell1.classList.add('no-wrap');  // この行を追加
+                const cell2 = row.insertCell(1);
+                const cell3 = row.insertCell(2);
+                const cell4 = row.insertCell(3);
+
+                cell1.textContent = convertUnixTimestampToDate(item.createdAt);  // ここでのキーはAPIのレスポンスに応じて変更
+                cell2.textContent = item.venue.name;  // 同上
+                cell3.textContent = item.shout;  // 同上
+                const postButton = document.createElement('button');
+                postButton.textContent = "投稿";
+                postButton.classList.add('btn', 'btn-primary'); // Bootstrapのボタンスタイルを適用
+                postButton.addEventListener('click', function() {
+                    // ここにボタンがクリックされたときのアクションを書きます
+                    fetch('{{ setting.url_prefix }}/get_checkin_detail?checkinid=' + item.id)  // APIのエンドポイントを指定
+                    .then(response => response.json())
+                    .then(data2 => {
+                        console.log(`ID ${item.id} のデータが投稿ボタンでクリックされました`);
+                        var text = "";
+                        if (!(item.shout === undefined)) {
+                            text += item.shout + "%0A";
+                        }
+                        text += "I'm at " + item.venue.name;
+                        if (!(item.venue.location.neighborhood === undefined)) {
+                            text += " in " + item.venue.location.neighborhood;
+                        } 
+                        var linkURL = "https://twitter.com/intent/tweet?";
+                        linkURL += "text=" + text
+                        var shareurl = data2.response.checkin.checkinShortUrl;
+                        linkURL += "&url=" + shareurl;
+                        window.open(linkURL, '_blank');
+                    });
+                });
+                cell4.appendChild(postButton);
+            });
+            document.getElementById('errorDiv').style.display = 'none';
+        })
+        .catch(error => {
+            console.error('Error:', error);
+            document.getElementById('errorDiv').style.display = 'block';
+        });
+    });
+</script>
+
+<!-- Bootstrap JS (optional, for additional features like modals) -->
+<script src="https://code.jquery.com/jquery-3.5.1.slim.min.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/@popperjs/core@2.9.3/dist/umd/popper.min.js"></script>
+<script src="https://maxcdn.bootstrapcdn.com/bootstrap/4.5.2/js/bootstrap.min.js"></script>
+</body>
+</html>
